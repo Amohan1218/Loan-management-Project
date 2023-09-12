@@ -5,30 +5,29 @@ CREATE TABLE ms_users(
     user_uname varchar(20) UNIQUE NOT NULL,
     user_cdate date,
     user_type varchar(4) NOT NULL, -- CUST/ADMN
-    user_pwd varchar(50) NOT NULL,
+    user_pwd varchar(100) NOT NULL,
     user_email varchar(60),
     user_recoveryemail varchar(60),
     user_mobile bigint NOT NULL CHECK (user_mobile >= 1000000000 AND user_mobile <= 9999999999)
 );
 SELECT * FROM ms_users;
-DELETE FROM ms_users where user_id = 6;
+DELETE FROM ms_users;
 
 -----User Sessions---------------------------------------------------------------
 DROP TABLE ms_usersessions CASCADE;
 CREATE TABLE ms_usersessions(
 	ussn_id serial PRIMARY KEY,
-    user_id integer,
-    ussn_sessionid varchar(20),
+    ussn_user_id integer,
+    ussn_sessionid varchar(50),
     ussn_cdate date,
-    ussn_key varchar(20),
+    ussn_key varchar(100),
     ussn_host varchar(20),
-    ussn_expdate date,
-    ussn_status varchar(2) -- AC/NA
+    ussn_expire timestamp without time zone,
+    ussn_status varchar(2), -- AC/NA
+	FOREIGN KEY (ussn_user_id) REFERENCES ms_users(user_id)
 );
 SELECT * FROM ms_usersessions;
 DELETE FROM ms_usersessions;
-
-
 
 ----Customers-----------------------------------------------------------
 DROP TABLE ms_customers CASCADE;
@@ -45,18 +44,46 @@ CREATE TABLE ms_customers(
     cust_luser int DEFAULT 1,
     FOREIGN KEY (cust_luser) REFERENCES ms_users(user_id)
 );
--- Insert the first record
-INSERT INTO ms_customers (cust_firstname, cust_lastname, cust_dob, cust_panno, cust_mobile, cust_address, cust_gname)
-VALUES ('John', 'Doe', '1990-05-15', 'ABCD1234E', 9876543210, '123 Main St, City', 'Johns Guardian');
-
--- Insert the second record
-INSERT INTO ms_customers (cust_firstname, cust_lastname, cust_dob, cust_panno, cust_mobile, cust_address, cust_gname)
-VALUES ('Sai', 'Smith', '1985-08-20', 'WXYZ5678F', 9876543211, '456 Elm St, Town', 'Janes Guardian');
 
 SELECT * FROM ms_customers;
 DELETE FROM ms_customers;
 
+----Loan Applicants----------------------------------------------------------------
+DROP TABLE ms_loanApplicants CASCADE;
+Create table ms_loanApplicants(
+	lnap_id serial PRIMARY KEY,
+    lnap_cust_id int,
+    lnap_apdate date DEFAULT now()::date, 
+    lnap_lnty_id smallint,
+    lnap_amount numeric, 
+    lnap_emi_range_from numeric DEFAULT 0, 
+    lnap_emi_range_to numeric DEFAULT 0, 
+    lnap_nom_requested int,
+    lnap_annual_income numeric,
+    lnap_disposable_income numeric,
+    lnap_cibil_score numeric DEFAULT 0, --updated by company
+    lnap_status varchar(4) DEFAULT 'XXXX', -- INPR/APRV/RJCD
+    lnap_conclusion_remarks varchar(255) DEFAULT 'XXXX',
+    lnap_processed_user int DEFAULT 1,
+    lnap_processed_date date DEFAULT now()::date,
+    FOREIGN KEY (lnap_processed_user) REFERENCES ms_users(user_id),
+    FOREIGN KEY (lnap_lnty_id) REFERENCES ms_loantypes(lnty_id),
+    FOREIGN KEY (lnap_cust_id) REFERENCES ms_customers(cust_id)
+);
+UPDATE ms_loanApplicants SET lnap_status = 'INPR' WHERE lnap_id = 1;
+SELECT * FROM ms_loanApplicants;
+DELETE FROM ms_loanApplicants;
 
+---Loan Applicants Nominees-----------------------------------------------------------------
+DROP TABLE ms_loanApplicantsNominees CASCADE;
+CREATE TABLE ms_loanApplicantsNominees(
+	lnap_id int PRIMARY KEY,
+    lnap_nominee varchar(50),
+    lanp_relation varchar(50),
+    FOREIGN KEY (lnap_id) REFERENCES ms_loanApplicants(lnap_id)
+);
+SELECT * FROM ms_loanApplicantsNominees;
+DELETE FROM ms_loanApplicantsNominees;
 
 -----Loan Types---------------------------------------------------------------
 DROP TABLE ms_loantypes CASCADE;
@@ -86,52 +113,5 @@ INSERT INTO ms_loantypes (lnty_name, lnty_desc)
 VALUES ('Education Loan', 'Loan for financing education expenses.');
 
 SELECT * FROM ms_loantypes;
-DELETE FROM ms_loantypes;
-
-----Loan Applicants----------------------------------------------------------------
-DROP TABLE ms_loanApplicants CASCADE;
-Create table ms_loanApplicants(
-	lnap_id serial PRIMARY KEY,
-    lnap_cust_id int,
-    lnap_apdate date DEFAULT now()::date, 
-    lnap_lnty_id smallint,
-    lnap_amount numeric, 
-    lnap_emi_range_from numeric DEFAULT 0, 
-    lnap_emp_range_to numeric DEFAULT 0, 
-    lnap_nom_requested int,
-    lnap_annual_income numeric,
-    lnap_disposable_income numeric,
-    lnap_cibil_score numeric DEFAULT 0, --updated by company
-    lnap_status varchar(4) DEFAULT 'XXXX', -- INPR/APRV/RJCD
-    lnap_conclusion_remarks varchar(255) DEFAULT 'XXXX',
-    lnap_processed_user int DEFAULT 1,
-    lnap_processed_date date DEFAULT now()::date,
-    FOREIGN KEY (lnap_processed_user) REFERENCES ms_users(user_id),
-    FOREIGN KEY (lnap_lnty_id) REFERENCES ms_loantypes(lnty_id),
-    FOREIGN KEY (lnap_cust_id) REFERENCES ms_customers(cust_id)
-);
-
--- Insert the first record
-INSERT INTO ms_loanApplicants (lnap_cust_id, lnap_lnty_id, lnap_amount, lnap_nom_requested, lnap_annual_income, lnap_disposable_income)
-VALUES (1, 4, 10000.00, 2, 60000.00, 20000.00);
-
--- Insert the second record
-INSERT INTO ms_loanApplicants (lnap_cust_id, lnap_lnty_id, lnap_amount, lnap_nom_requested, lnap_annual_income, lnap_disposable_income)
-VALUES (2, 2, 500000.00, 4, 80000.00, 30000.00);
-
-SELECT * FROM ms_loanApplicants;
-DELETE FROM ms_loanApplicants;
-
----Loan Applicants Nominees-----------------------------------------------------------------
-DROP TABLE loanApplicantsNominees;
-CREATE TABLE loanApplicantsNominees(
-	lnap_id int,
-    lnap_nominee varchar(50),
-    lanp_relation varchar(50),
-    FOREIGN KEY (lnap_id) REFERENCES ms_loanApplicants(lnap_id)
-);
-SELECT * FROM loanApplicantsNominees;
-DELETE FROM loanApplicantsNominees;
-
---------------------------------------------------------------------
-
+--DELETE FROM ms_loantypes;
+-----------------------------------------------------------------------------
